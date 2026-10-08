@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="지구에서 출발해 태양계 행성으로 가는 호만 궤도전이를 직접 재생해 보는 시뮬레이션">
+<title>호만 궤도전이 시뮬레이션</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E🚀%3C/text%3E%3C/svg%3E">
+<style>
+:root{color-scheme:dark;--bg:#080e1e;--panel:#101a30;--line:#283852;--txt:#e7edf8;--muted:#9baecb;--accent:#64aaff}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:#050916;color:var(--txt);font-family:'Pretendard','Apple SD Gothic Neo','Malgun Gothic',Arial,sans-serif}
+.top{min-height:58px;padding:12px 23px;border-bottom:1px solid #253047;background:#0c1324}
+.top h1{font-size:17px;margin:0 0 5px;font-weight:750}
+.top small{font-size:10px;color:#8c9cb7}
+.layout{display:grid;grid-template-columns:minmax(0,1fr) 290px;height:calc(100vh - 58px);min-height:520px}
+.scene{position:relative;min-width:0;overflow:hidden;background:radial-gradient(ellipse at 48% 45%,#0e1a34,#080e20 75%)}
+canvas{width:100%;height:100%;display:block}
+.scene-title{position:absolute;left:20px;top:16px;font-size:12px;font-weight:bold;color:#e3edff}
+.scene-sub{position:absolute;left:20px;top:35px;color:#8799b7;font-size:10px}
+.legend{position:absolute;bottom:16px;left:18px;display:flex;flex-wrap:wrap;gap:12px 17px;font-size:11px;color:#b6c8e0}
+.dot{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+.sidebar{padding:13px;background:#0e1629;border-left:1px solid #273650;overflow-y:auto}
+.panel{background:#111c32;border:1px solid #283954;border-radius:5px;margin-bottom:11px;padding:12px}
+.panel h2{font-size:12px;margin:0 0 9px;color:#f0f4ff}
+.panel label{font-size:10px;color:#b6c6df;display:block;margin-bottom:6px}
+select,button{background:#1b2944;border:1px solid #3a4d6c;color:#eaf2ff;border-radius:4px;padding:8px;width:100%;font-size:12px;cursor:pointer;font-family:inherit}
+select{margin-bottom:9px}
+.btns{display:grid;grid-template-columns:repeat(3,1fr);gap:5px}
+.btns button{padding:9px 2px;font-size:11px}
+.btns button:hover,button:hover{background:#30456a}
+.speed{display:grid;grid-template-columns:repeat(5,1fr);gap:3px;margin-top:7px}
+.speed button{padding:7px 1px;font-size:10px}
+.active{background:#295d9a!important;border-color:#69adff!important}
+.progress{height:6px;background:#24324a;border-radius:5px;overflow:hidden;margin:11px 0 5px}
+.progress>div{height:100%;background:#6caeff;width:0%}
+.progress-txt{display:flex;justify-content:space-between;color:#99aac4;font-size:10px}
+.stats{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.stat{border:1px solid #293c59;background:#0c1629;padding:7px;border-radius:3px;min-height:51px}
+.stat .k{font-size:9px;color:#8ba0c2;margin-bottom:6px}
+.stat .v{font-size:12px;color:#e4f0ff;font-weight:700}
+.note{font-size:10px;color:#a9bad4;line-height:1.65}
+.warning{margin-top:9px;border:1px solid #735c2b;background:#302818;color:#e8c989;border-radius:4px;padding:9px;font-size:10px;line-height:1.5}
+.status{font-size:10px;color:#8fc4ff;margin:5px 0 0}
+@media(max-width:760px){
+  .layout{grid-template-columns:1fr;height:auto}
+  .scene{height:58vh;min-height:360px}
+  .sidebar{border-left:0;border-top:1px solid #283954}
+  .top h1{font-size:14px}
+  .panel{margin-bottom:9px}
+}
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>지구 출발 태양계 행성 간 호만 궤도전이 시뮬레이션</h1>
+  <small>뉴턴의 만유인력 · 케플러 법칙 · 호만 전이 · 상대 위상각 | 태양 중심 2차원 축소모형</small>
+</header>
+
+<main class="layout">
+  <section class="scene">
+    <canvas id="space" role="img" aria-label="태양, 지구, 도착 행성, 탐사선의 궤도 애니메이션"></canvas>
+    <div class="scene-title" id="sceneTitle">지구 → 화성 궤도전이</div>
+    <div class="scene-sub">원형 공전궤도 가정 · 태양 중심 관성좌표계 · 실제 시간 비례 계산</div>
+    <div class="legend">
+      <span><i class="dot" style="background:#ffc65a"></i>태양</span>
+      <span><i class="dot" style="background:#4aaaff"></i>지구</span>
+      <span><i class="dot" style="background:#ffad62"></i>도착 행성</span>
+      <span><i class="dot" style="background:#fff"></i>탐사선</span>
+    </div>
+  </section>
+
+  <aside class="sidebar">
+    <div class="panel">
+      <h2>시뮬레이션 설정</h2>
+      <label for="planet">도착 행성 선택</label>
+      <select id="planet">
+        <option value="Mercury">수성</option>
+        <option value="Venus">금성</option>
+        <option value="Mars" selected>화성</option>
+        <option value="Jupiter">목성</option>
+        <option value="Saturn">토성</option>
+        <option value="Uranus">천왕성</option>
+        <option value="Neptune">해왕성</option>
+      </select>
+      <div class="btns">
+        <button id="pause">⏸ 일시 정지</button>
+        <button id="resume">▶ 재생</button>
+        <button id="reset">↺ 처음으로</button>
+      </div>
+      <label style="margin-top:12px">재생 속도</label>
+      <div class="speed" id="speedBtns">
+        <button data-speed="0.25">0.25×</button>
+        <button data-speed="0.5">0.5×</button>
+        <button data-speed="1" class="active">1×</button>
+        <button data-speed="2">2×</button>
+        <button data-speed="4">4×</button>
+      </div>
+      <div class="progress"><div id="bar"></div></div>
+      <div class="progress-txt"><span id="elapsed">경과 0.0일</span><span id="percent">0.0%</span></div>
+      <div class="status" id="status">출발 대기 · 재생 버튼을 누르세요</div>
+    </div>
+
+    <div class="panel">
+      <h2>궤도 및 물리 계산 정보</h2>
+      <div class="stats" id="stats"></div>
+    </div>
+
+    <div class="panel">
+      <h2>과학 개념 설명</h2>
+      <div class="note">
+        탐사선은 지구의 태양 중심 공전속도에 순행 방향 속도 변화(Δv)를 더하거나 빼서 타원형 호만 전이궤도에 진입합니다. 태양의 중력과 케플러 운동 법칙에 따라 전이 타원 위 위치·속도를 계산합니다.<br><br>
+        도착 행성의 출발 위상각은 전이 시간 동안 행성이 공전할 각도를 고려하여 계산합니다. 전이궤도의 끝과 행성의 위치가 일치하도록 초기 조건을 설정합니다.
+      </div>
+      <div class="warning">※ 이 모델은 태양과 두 행성의 원형·동일 평면 공전을 가정한 이상적 호만 전이입니다. 실제 탐사에서는 행성의 타원궤도, 궤도 경사, 행성 중력, 출발·도착 기동 및 발사창을 추가로 고려해야 합니다. 위상각이 맞지 않으면 궤도에 도달해도 행성과 만나지 못합니다.</div>
+    </div>
+  </aside>
+</main>
+
+<script>
+(() => {
+  'use strict';
+  const AU = 149597870.7, MU = 1.32712440018e11, DAY = 86400;
+  const P = {
+    Mercury: ['수성', .387098, 87.969],
+    Venus:   ['금성', .723332, 224.701],
+    Mars:    ['화성', 1.523679, 686.98],
+    Jupiter: ['목성', 5.2044, 4332.59],
+    Saturn:  ['토성', 9.5826, 10759.22],
+    Uranus:  ['천왕성', 19.2184, 30688.5],
+    Neptune: ['해왕성', 30.11, 60182]
+  };
+
+  const c = document.getElementById('space'), ctx = c.getContext('2d'), sel = document.getElementById('planet');
+  let elapsed = 0, playing = false, speed = 1, last = 0, model = null, stars = [];
+  const $ = id => document.getElementById(id);
+  const fmt = (x, n = 2) => Number(x).toLocaleString('ko-KR', { maximumFractionDigits: n, minimumFractionDigits: n });
+
+  function create() {
+    const [name, rA] = P[sel.value];
+    const rE = 1, rin = Math.min(rE, rA), rout = Math.max(rE, rA);
+    const a = (rE + rA) / 2, e = (rout - rin) / (rout + rin);
+    const T = Math.PI * Math.sqrt(Math.pow(a * AU, 3) / MU) / DAY;
+    const nA = Math.sqrt(MU / Math.pow(rA * AU, 3)) * DAY;
+    const nE = Math.sqrt(MU / Math.pow(AU, 3)) * DAY;
+    const phase = ((Math.PI - nA * T) % (2 * Math.PI) + 2 * Math.PI) % (2 * Math.PI);
+    const outward = rA > 1;
+    model = {
+      name, rA, a, e, T, nA, nE, phase, outward, rp: rin, ra: rout,
+      vEarth:  Math.sqrt(MU / AU),
+      vDepart: Math.sqrt(MU * (2 / AU - 1 / (a * AU))),
+      vArrive: Math.sqrt(MU * (2 / (rA * AU) - 1 / (a * AU))),
+      vPlanet: Math.sqrt(MU / (rA * AU))
+    };
+    elapsed = 0; playing = false; last = 0;
+    $('sceneTitle').textContent = '지구 → ' + name + ' 호만 궤도전이';
+    update();
+  }
+
+  function pos(t) {
+    const m = model;
+    const earthAng = m.nE * t;
+    const earth = [Math.cos(earthAng), Math.sin(earthAng)];
+    const destAng = m.phase + m.nA * t;
+    const dest = [m.rA * Math.cos(destAng), m.rA * Math.sin(destAng)];
+    const mean = Math.PI * Math.min(Math.max(t / m.T, 0), 1);
+    const M = m.outward ? mean : Math.PI + mean;
+    let E = M;
+    for (let i = 0; i < 14; i++) E -= (E - m.e * Math.sin(E) - M) / (1 - m.e * Math.cos(E));
+    let x, y;
+    if (m.outward) {
+      x = m.a * (Math.cos(E) - m.e);
+      y = m.a * Math.sqrt(1 - m.e * m.e) * Math.sin(E);
+    } else {
+      x = -m.a * (Math.cos(E) - m.e);
+      y = -m.a * Math.sqrt(1 - m.e * m.e) * Math.sin(E);
+    }
+    return { earth, dest, ship: [x, y] };
+  }
+
+  function update() {
+    const m = model, t = Math.min(elapsed, m.T), v = pos(t);
+    const rr = Math.hypot(...v.ship);
+    const shipSpeed = Math.sqrt(MU * (2 / (rr * AU) - 1 / (m.a * AU)));
+    const progress = t / m.T;
+    $('elapsed').textContent = '경과 ' + fmt(t, 1) + '일';
+    $('percent').textContent = fmt(progress * 100, 1) + '%';
+    $('bar').style.width = progress * 100 + '%';
+    $('status').textContent =
+      t >= m.T ? '전이 완료 · 도착 행성과 조우' :
+      playing ? '전이 진행 중' :
+      t === 0 ? '출발 대기 · 재생 버튼을 누르세요' : '일시 정지';
+    const values = [
+      ['도착 행성', m.name],
+      ['전이 방향', m.outward ? '외향 전이' : '내향 전이'],
+      ['지구 공전반지름', '1.000 AU'],
+      ['목표 공전반지름', fmt(m.rA, 3) + ' AU'],
+      ['전이 타원 장반경', fmt(m.a, 3) + ' AU'],
+      ['전이 시간', fmt(m.T, 1) + '일'],
+      ['출발 위상각', fmt(m.phase * 180 / Math.PI, 2) + '°'],
+      ['전이 이심률', fmt(m.e, 4)],
+      ['지구 공전속도', fmt(m.vEarth, 2) + ' km/s'],
+      ['탐사선 출발속도', fmt(m.vDepart, 2) + ' km/s'],
+      ['출발 Δv', fmt(m.vDepart - m.vEarth, 2) + ' km/s'],
+      ['현재 탐사선 속도', fmt(shipSpeed, 2) + ' km/s'],
+      ['도착 행성 공전속도', fmt(m.vPlanet, 2) + ' km/s'],
+      ['도착 상대속도', fmt(Math.abs(m.vArrive - m.vPlanet), 2) + ' km/s']
+    ];
+    $('stats').innerHTML = values.map(([k, val]) =>
+      `<div class="stat"><div class="k">${k}</div><div class="v">${val}</div></div>`).join('');
+  }
+
+  function resize() {
+    const r = c.getBoundingClientRect(), d = Math.min(window.devicePixelRatio || 1, 2);
+    c.width = Math.round(r.width * d);
+    c.height = Math.round(r.height * d);
+    ctx.setTransform(d, 0, 0, d, 0, 0);
+    stars = Array.from({ length: 180 }, (_, i) => ({
+      x: ((i * 127.7) % 997) / 997 * r.width,
+      y: ((i * 383.9) % 991) / 991 * r.height,
+      alpha: .12 + ((i * 17) % 10) / 35
+    }));
+  }
+
+  function render() {
+    const w = c.clientWidth, h = c.clientHeight;
+    if (!w || !h) return;
+    ctx.clearRect(0, 0, w, h);
+    for (const s of stars) { ctx.fillStyle = `rgba(168,195,243,${s.alpha})`; ctx.fillRect(s.x, s.y, 1, 1); }
+
+    const m = model, v = pos(Math.min(elapsed, m.T));
+    const maxR = Math.max(1, m.rA), scale = Math.min(w * .43, h * .43) / maxR;
+    const cx = w * .48, cy = h * .51;
+    const pt = (x, y) => [cx + x * scale, cy + y * scale];
+    const circle = (r, color) => {
+      ctx.beginPath(); ctx.arc(cx, cy, r * scale, 0, Math.PI * 2);
+      ctx.strokeStyle = color; ctx.lineWidth = 1; ctx.stroke();
+    };
+    circle(1, '#25436b');
+    circle(m.rA, '#24334d');
+
+    const samples = 240;
+    ctx.beginPath();
+    for (let i = 0; i <= samples; i++) {
+      const [x, y] = pt(...pos(m.T * i / samples).ship);
+      if (!i) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = '#c6d4e8'; ctx.lineWidth = 1.5; ctx.stroke();
+
+    ctx.setLineDash([2, 5]);
+    ctx.beginPath();
+    for (let i = 0; i <= samples; i++) {
+      const [x, y] = pt(...pos(Math.min(elapsed, m.T) * i / samples).ship);
+      if (!i) ctx.moveTo(x, y); else ctx.lineTo(x, y);
+    }
+    ctx.strokeStyle = '#ffd889'; ctx.lineWidth = 2; ctx.stroke();
+    ctx.setLineDash([]);
+
+    function body(point, r, color, glow, label) {
+      const [x, y] = pt(...point);
+      ctx.shadowBlur = glow; ctx.shadowColor = color; ctx.fillStyle = color;
+      ctx.beginPath(); ctx.arc(x, y, r, 0, Math.PI * 2); ctx.fill();
+      ctx.shadowBlur = 0;
+      if (label) { ctx.font = '11px sans-serif'; ctx.fillStyle = '#d4e5fa'; ctx.fillText(label, x + 9, y - 7); }
+    }
+    body([0, 0], 6, '#ffc64f', 18, '태양');
+    body(v.earth, 4.3, '#52adff', 10, '지구');
+    body(v.dest, 4.5, '#ffab61', 10, m.name);
+    body(v.ship, 3.3, '#f5f7ff', 9, '탐사선');
+  }
+
+  function frame(now) {
+    if (!last) last = now;
+    const dt = Math.min((now - last) / 1000, .08);
+    last = now;
+    if (playing && model) {
+      elapsed = Math.min(model.T, elapsed + dt * model.T / 24 * speed);
+      if (elapsed >= model.T) playing = false;
+      update();
+    }
+    render();
+    requestAnimationFrame(frame);
+  }
+
+  sel.addEventListener('change', create);
+  $('pause').onclick = () => { playing = false; update(); };
+  $('resume').onclick = () => { if (elapsed >= model.T) elapsed = 0; playing = true; last = 0; update(); };
+  $('reset').onclick = () => { elapsed = 0; playing = false; last = 0; update(); render(); };
+  document.querySelectorAll('[data-speed]').forEach(b => b.onclick = () => {
+    speed = Number(b.dataset.speed);
+    document.querySelectorAll('[data-speed]').forEach(x => x.classList.toggle('active', x === b));
+  });
+  window.addEventListener('resize', resize);
+
+  create();
+  resize();
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
